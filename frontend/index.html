@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Grid Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans p-6 min-h-screen transition-colors duration-300">
+
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-slate-900 dark:text-white transition-colors">⚡ Smart Grid Simulator</h1>
+        
+        <div class="flex gap-4 items-center">
+            <button onclick="toggleTheme()" id="theme-toggle" class="p-2.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition-all shadow-inner" title="Basculer le thème">🌙</button>
+            <button onclick="exportToPDF()" class="p-2.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition-all shadow-inner" title="Télécharger en PDF">📄</button>
+            
+            <button onclick="runSimulation24h()" class="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                <span>⏱️</span> Simuler 24h
+            </button>
+
+            <button onclick="runN1Test()" class="bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 animate-pulse hover:animate-none">
+                <span>⚠️</span> N-1
+            </button>
+            
+            <button onclick="runSimulation()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                <span>⚡</span> Simuler
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-600 mb-6 flex flex-wrap gap-6 items-end">
+        <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Scénario Climatique</label>
+            <select id="scenario" onchange="runSimulation()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-sm rounded-lg p-2.5 outline-none focus:ring-emerald-500">
+                <option value="Normal">Normal (Théorique)</option>
+                <option value="Grand Froid">Grand Froid (Hiver)</option>
+                <option value="Canicule">Canicule (Sécheresse)</option>
+                <option value="Blackout">Blackout (Crise)</option>
+                <option value="Réaliste (Marge 20%)">Réaliste (Contraintes Industrielles)</option>
+            </select>
+            <p id="scenario-desc" class="mt-2 text-xs text-slate-500 dark:text-slate-400 italic leading-tight">
+                Modèle théorique parfait : flexibilité totale des centrales et transport sans surcoût.
+            </p>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+            <div class="relative flex items-center gap-1 group w-max mb-2">
+                <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300">Flux Min Imposé (%)</label>
+                <span class="cursor-help text-slate-500 dark:text-slate-400 text-xs bg-slate-200 dark:bg-slate-700 rounded-full w-4 h-4 flex items-center justify-center font-bold">?</span>
+                <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-800 dark:bg-slate-950 text-slate-100 text-xs rounded-lg shadow-xl z-50 font-normal">
+                    <strong class="text-blue-400">Contrainte Take-or-Pay :</strong> Force le réseau à faire transiter de l'énergie en permanence. Si la production nationale est insuffisante, l'algorithme déclenchera des imports massifs de secours.
+                    <div class="absolute top-full left-4 border-4 border-transparent border-t-slate-800 dark:border-t-slate-950"></div>
+                </div>
+            </div>
+            
+            <select id="minFlow" onchange="runSimulation()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-sm rounded-lg p-2.5 outline-none focus:ring-blue-500">
+                <option value="0">0% (Optimisation pure)</option>
+                <option value="5">5% (Contrainte légère)</option>
+                <option value="10">10% (Contrainte contractuelle)</option>
+                <option value="25">25% (Stress Test Extrême)</option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+            <div class="relative flex items-center gap-1 group w-max mb-2">
+                <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300">Taxe Carbone (€/tCO₂)</label>
+                <span class="cursor-help text-slate-500 dark:text-slate-400 text-xs bg-slate-200 dark:bg-slate-700 rounded-full w-4 h-4 flex items-center justify-center font-bold">?</span>
+                <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-800 dark:bg-slate-950 text-slate-100 text-xs rounded-lg shadow-xl z-50 font-normal">
+                    <strong class="text-emerald-400">Marché ETS :</strong> Applique une pénalité financière proportionnelle aux émissions de CO₂. Modifie le <i>Merit Order</i> en rendant le Thermique hors de prix.
+                    <div class="absolute top-full left-4 border-4 border-transparent border-t-slate-800 dark:border-t-slate-950"></div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <input type="range" id="carbonTax" min="0" max="250" value="0" step="5" onchange="updateCarbonLabel(); runSimulation()" class="w-full accent-emerald-600">
+                <span id="carbonValue" class="text-sm font-bold text-slate-800 dark:text-slate-200 w-12 text-right">0 €</span>
+            </div>
+        </div>
+        
+        <div class="flex-2 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 min-w-[300px]">
+            <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Disponibilité du Parc</label>
+            <div class="flex gap-4">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="nuc-active" checked onchange="runSimulation()" class="w-4 h-4 text-emerald-600 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 rounded focus:ring-emerald-500 cursor-pointer">
+                    <span class="text-sm text-slate-700 dark:text-slate-200 font-medium">Nucléaire</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="hydro-active" checked onchange="runSimulation()" class="w-4 h-4 text-emerald-600 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 rounded focus:ring-emerald-500 cursor-pointer">
+                    <span class="text-sm text-slate-700 dark:text-slate-200 font-medium">Hydraulique</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="therm-active" checked onchange="runSimulation()" class="w-4 h-4 text-emerald-600 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 rounded focus:ring-emerald-500 cursor-pointer">
+                    <span class="text-sm text-slate-700 dark:text-slate-200 font-medium">Thermique</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <details class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-600 mb-6 group cursor-pointer">
+        <summary class="text-lg font-bold text-slate-800 outline-none flex justify-between items-center">
+            <span>⚙️ Éditeur de Données Avancé (Capacités & Demandes)</span>
+            <span class="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+        </summary>
+        <div class="mt-6 grid grid-cols-2 gap-8 cursor-default" onclick="event.stopPropagation()">
+            <div>
+                <h3 class="font-semibold text-slate-700 mb-3 border-b pb-2">🏭 Centrales (Capacité MW)</h3>
+                <div id="editor-plants" class="space-y-2 max-h-64 overflow-y-auto pr-2"></div>
+            </div>
+            <div>
+                <h3 class="font-semibold text-slate-700 mb-3 border-b pb-2">🏙️ Villes (Demande MW)</h3>
+                <div id="editor-cities" class="space-y-2 max-h-64 overflow-y-auto pr-2"></div>
+            </div>
+        </div>
+    </details>
+    <div id="time-controller" class="hidden bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6 transition-all duration-500">
+        <div class="flex items-center justify-between mb-2">
+            <h2 class="text-lg font-bold text-slate-800 dark:text-white">⏳ Ligne du temps : <span id="current-hour-display" class="text-blue-600 dark:text-blue-400 font-black text-xl">19:00</span></h2>
+            <button onclick="play24h()" id="play-btn" class="bg-blue-100 dark:bg-slate-700 text-blue-700 dark:text-blue-300 px-4 py-1.5 rounded-lg font-bold hover:bg-blue-200 dark:hover:bg-slate-600 transition-colors flex items-center gap-2">
+                ▶️ Lecture Auto
+            </button>
+        </div>
+        <input type="range" id="hourSlider" min="0" max="23" value="19" step="1" oninput="changeHour(this.value)" class="w-full accent-blue-600 cursor-pointer">
+        <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-2 font-medium">
+            <span>00:00 (Creux)</span>
+            <span>08:00 (Matin)</span>
+            <span>12:00 (Midi)</span>
+            <span>19:00 (Pic Soir)</span>
+            <span>23:00</span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-600 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xl">💶</span>
+                <h3 id="label-cost" class="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Coût Total</h3>
+            </div>
+            <p id="kpi-cost" class="text-2xl font-black text-slate-800 dark:text-slate-200 mt-1">--- €</p>
+        </div>
+        
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-600 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xl">🏭</span>
+                <h3 id="label-prod" class="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Production</h3>
+            </div>
+            <p id="kpi-prod" class="text-2xl font-black text-slate-800 dark:text-slate-200 mt-1">--- MW</p>
+        </div>
+        
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-600 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xl">🏙️</span>
+                <h3 id="label-dem" class="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Demande</h3>
+            </div>
+            <p id="kpi-dem" class="text-2xl font-black text-slate-800 dark:text-slate-200 mt-1">--- MW</p>
+        </div>
+        
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-100 dark:border-slate-600 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xl">⚖️</span>
+                <h3 class="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Bilan E/I</h3>
+            </div>
+            <p id="kpi-bilan" class="text-2xl font-black mt-1 text-slate-400 dark:text-slate-300">--- MW</p>
+        </div>
+        
+        <div class="bg-emerald-50 p-5 rounded-xl shadow-sm border border-emerald-100 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xl">🔋</span>
+                <div class="relative flex items-center gap-1 group w-max">
+                    <h3 class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Rend. Éner.</h3>
+                    <span class="cursor-help text-emerald-600 bg-emerald-200 rounded-full w-4 h-4 flex items-center justify-center font-bold text-[10px]">?</span>
+                    <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2 bg-emerald-900 text-emerald-50 text-xs rounded-lg shadow-xl z-50 font-normal normal-case">
+                        Ratio entre la demande réelle des villes et la production totale. Un rendement inférieur à 100% indique une surproduction exportée (gaspillage potentiel).
+                    </div>
+                </div>
+            </div>
+            <p id="kpi-eff-energy" class="text-2xl font-black text-emerald-800 mt-1">--- %</p>
+        </div>
+        
+        <div class="bg-blue-50 p-5 rounded-xl shadow-sm border border-blue-100 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xl">🛣️</span>
+                <div class="relative flex items-center gap-1 group w-max">
+                    <h3 class="text-xs font-bold text-blue-700 uppercase tracking-wider">Fluidité Réseau</h3>
+                    <span class="cursor-help text-blue-600 bg-blue-200 rounded-full w-4 h-4 flex items-center justify-center font-bold text-[10px]">?</span>
+                    <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2 bg-blue-900 text-blue-50 text-xs rounded-lg shadow-xl z-50 font-normal normal-case">
+                        Indicateur d'optimisation du graphe. Baisse si l'algorithme est forcé de faire passer l'énergie par des lignes électriques congestionnées et coûteuses.
+                    </div>
+                </div>
+            </div>
+            <p id="kpi-eff-optim" class="text-2xl font-black text-blue-800 mt-1">--- %</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col">
+            <h2 class="text-lg font-bold text-slate-800 dark:text-white mb-4">📍 Cartographie des Flux</h2>
+            <div id="map" class="w-full aspect-square rounded-lg z-10 border border-slate-700"></div>
+        </div>
+
+        <div class="flex flex-col gap-6">
+            <div class="flex items-center gap-2 mb-4">
+                <h2 class="text-lg font-bold text-slate-800 dark:text-white">📊 Mix Énergétique</h2>
+                <div class="relative flex items-center group">
+                    <span class="cursor-help text-slate-500 dark:text-slate-400 text-xs bg-slate-200 dark:bg-slate-700 rounded-full w-5 h-5 flex items-center justify-center font-bold">?</span>
+                    <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block w-72 p-3 bg-slate-800 dark:bg-slate-950 text-slate-100 text-xs rounded-lg shadow-xl z-50 font-normal">
+                        <div id="mix-tooltip-text">Explication en attente...</div>
+                        <div class="absolute top-full left-4 border-4 border-transparent border-t-slate-800 dark:border-t-slate-950"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="relative flex-1 min-h-[200px]"><canvas id="mixChart"></canvas></div>
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex-1 flex flex-col">
+                <h2 class="text-lg font-bold text-slate-800 dark:text-white mb-4">⚡ État des Lignes</h2>
+                <div class="relative flex-1 min-h-[200px]"><canvas id="healthChart"></canvas></div>
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-600">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold text-slate-800">💸 Détail des Flux Actifs</h2>
+            
+            <div class="flex gap-2">
+                <select id="sortOption" onchange="renderTable()" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2 focus:ring-emerald-500 outline-none">
+                    <option value="charge_desc">Trier par : Surcharge (Décroissant)</option>
+                    <option value="cost_desc">Trier par : Coût (Le plus cher)</option>
+                    <option value="flow_desc">Trier par : Volume (MW)</option>
+                </select>
+                <button onclick="exportCSV()" class="bg-slate-800 hover:bg-slate-900 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors">
+                    📥 Exporter CSV
+                </button>
+            </div>
+        </div>
+        
+        <div class="overflow-x-auto max-h-96">
+            <table class="w-full text-sm text-left text-slate-500">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
+                    <tr>
+                        <th class="px-6 py-3">Source</th>
+                        <th class="px-6 py-3">Destination</th>
+                        <th class="px-6 py-3">Flux (MW)</th>
+                        <th class="px-6 py-3">Taux de Charge</th>
+                        <th class="px-6 py-3">Coût Moyen (€/MW)</th>
+                        <th class="px-6 py-3 text-right">Coût Total Ligne (€)</th>
+                    </tr>
+                </thead>
+                <tbody id="lines-table">
+                    <tr><td colspan="6" class="px-6 py-4 text-center">Aucune simulation lancée.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const map = L.map('map').setView([46.4, 2.5], 6);
+        let currentTileLayer = null;
+        let mapLayers = [];
+        let mixChartInstance = null;
+        let healthChartInstance = null;
+        let globalLinksData = []; 
+        let currentCutLine = null; 
+        let simulation24hData = null; // Stocke les 24h
+        let playInterval = null;      // Pour la lecture auto
+
+        // --- GESTION DU THÈME ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.classList.toggle('dark');
+            const isDark = html.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.getElementById('theme-toggle').innerText = isDark ? '☀️' : '🌙';
+            updateMapTheme(isDark);
+            updateChartsTheme(isDark);
+        }
+
+        function updateMapTheme(isDark) {
+            if (currentTileLayer) map.removeLayer(currentTileLayer);
+            const url = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+            currentTileLayer = L.tileLayer(url, { attribution: '&copy; OSM' }).addTo(map);
+        }
+
+        function updateChartsTheme(isDark) {
+            Chart.defaults.color = isDark ? '#cbd5e1' : '#475569';
+            if (mixChartInstance) mixChartInstance.update();
+            if (healthChartInstance) healthChartInstance.update();
+        }
+
+        window.onload = async function() {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-toggle').innerText = '☀️';
+                updateMapTheme(true);
+            } else { updateMapTheme(false); }
+            updateChartsTheme(document.documentElement.classList.contains('dark'));
+
+            try {
+                const res = await fetch('http://localhost:8000/network-data');
+                const nodes = await res.json();
+                const plantsDiv = document.getElementById('editor-plants');
+                const citiesDiv = document.getElementById('editor-cities');
+                
+                nodes.forEach(node => {
+                    let div = document.createElement('div');
+                    div.className = "flex justify-between items-center bg-slate-50 dark:bg-slate-700 p-2 rounded border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors";
+                    if (node.type.includes("Ville")) {
+                        div.innerHTML = `<span class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">${node.name}</span>
+                            <input type="number" data-id="${node.id}" value="${node.demand}" onchange="runSimulation()" class="node-input w-24 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 text-sm rounded p-1 text-right focus:ring-emerald-500 outline-none dark:text-white">`;
+                        citiesDiv.appendChild(div);
+                    } else {
+                        div.innerHTML = `<span class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">${node.name} <span class="text-xs text-slate-400">(${node.type})</span></span>
+                            <input type="number" data-id="${node.id}" value="${node.capacity_mw}" onchange="runSimulation()" class="node-input w-24 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 text-sm rounded p-1 text-right focus:ring-emerald-500 outline-none dark:text-white">`;
+                        plantsDiv.appendChild(div);
+                    }
+                });
+            } catch (e) { console.error("Erreur éditeur", e); }
+        };
+
+        // --- EXPORT PDF ---
+        function exportToPDF() {
+            const element = document.body;
+            const opt = { margin: 0.2, filename: 'Rapport_SmartGrid.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a3', orientation: 'landscape' } };
+            const btn = document.querySelector('[title="Télécharger en PDF"]');
+            btn.innerText = "⏳";
+            html2pdf().set(opt).from(element).save().then(() => { btn.innerText = "📄"; });
+        }
+
+        // --- GESTION DES DONNÉES ET AFFICHAGE ---
+        const descriptions = {
+            "Normal": "Modèle théorique parfait : flexibilité totale des centrales.",
+            "Grand Froid": "Pic de consommation hivernal : la demande des villes est multipliée par 2.",
+            "Canicule": "Stress hydrique et thermique : baisse du rendement nucléaire et hydraulique.",
+            "Blackout": "Mode dégradé : arrêt total du parc nucléaire.",
+            "Réaliste (Marge 20%)": "Contraintes réelles : Marge de sécurité de 20% et respect du Minimum Technique (Pmin)."
+        };
+
+        function getFormData() {
+            const customNodes = {};
+            document.querySelectorAll('.node-input').forEach(input => { customNodes[input.getAttribute('data-id')] = parseInt(input.value); });
+            return {
+                scenario: document.getElementById('scenario').value,
+                min_flow_pct: parseInt(document.getElementById('minFlow').value),
+                carbon_tax: parseFloat(document.getElementById('carbonTax').value), 
+                custom_nodes: customNodes,
+                active_nuclear: document.getElementById('nuc-active').checked,
+                active_thermal: document.getElementById('therm-active').checked,
+                active_hydro: document.getElementById('hydro-active').checked,
+                cut_line: currentCutLine
+            };
+        }
+
+        // Met à jour toute l'interface avec un jeu de données (1 heure)
+        function applyDataToDashboard(data) {
+            // 1. KPIs
+            const is24hMode = !document.getElementById('time-controller').classList.contains('hidden');
+            document.getElementById('label-cost').innerText = is24hMode ? "Coût (Heure en cours)" : "Coût Total";
+            document.getElementById('label-prod').innerText = is24hMode ? "Puissance Produite" : "Production";
+            document.getElementById('label-dem').innerText = is24hMode ? "Puissance Appelée" : "Demande";
+
+            //--- Changement du texte de l'info-bulle du Mix ---
+            const mixTooltip = document.getElementById('mix-tooltip-text');
+            if (is24hMode) {
+                mixTooltip.innerHTML = "<strong class='text-blue-400'>Mode Unit Commitment (24h) :</strong><br>Montre la dynamique du réseau. Le Nucléaire assure la base constante, tandis que l'Hydraulique et le Thermique sont appelés pour passer les pointes de consommation (matin/soir).";
+            } else {
+                mixTooltip.innerHTML = "<strong class='text-emerald-400'>Mode Economic Dispatch (Instant T) :</strong><br>Affiche la répartition de la production à cette heure précise selon le Merit Order. Les énergies les moins chères sont appelées en premier.";
+            }
+
+            document.getElementById('kpi-cost').innerText = new Intl.NumberFormat('fr-FR').format(data.kpi.cost.toFixed(0)) + ' €';
+            document.getElementById('kpi-prod').innerText = new Intl.NumberFormat('fr-FR').format(data.kpi.production / 1000) + ' MW';
+            document.getElementById('kpi-dem').innerText = new Intl.NumberFormat('fr-FR').format(data.kpi.demand / 1000) + ' MW';
+            document.getElementById('kpi-eff-energy').innerText = data.kpi.efficiency_energy + ' %';
+            document.getElementById('kpi-eff-optim').innerText = data.kpi.efficiency_optim + ' %';
+
+            let bilan = (data.kpi.production - data.kpi.demand) / 1000;
+            let bilanEl = document.getElementById('kpi-bilan');
+            bilanEl.innerText = new Intl.NumberFormat('fr-FR').format(Math.abs(bilan)) + ' MW';
+            if (bilan >= 0) { bilanEl.className = "text-2xl font-black mt-1 text-emerald-600"; bilanEl.innerText = "+ " + bilanEl.innerText + " (Exp)"; }
+            else { bilanEl.className = "text-2xl font-black mt-1 text-red-600"; bilanEl.innerText = "- " + bilanEl.innerText + " (Imp)"; }
+
+            // 2. Carte Leaflet
+            mapLayers.forEach(layer => map.removeLayer(layer));
+            mapLayers = [];
+            let safe = 0, warning = 0, critical = 0;
+            let locations = {};
+
+            const nucActive = document.getElementById('nuc-active').checked;
+            const hydroActive = document.getElementById('hydro-active').checked;
+            const thermActive = document.getElementById('therm-active').checked;
+            const scenario = document.getElementById('scenario').value;
+
+            data.nodes.forEach(node => {
+                locations[node.id] = [node.lat, node.lon];
+                let col = node.type.includes("Ville") ? "#10b981" : node.type.includes("Nucléaire") ? "#dc2626" : node.type.includes("Hydraulique") ? "#3b82f6" : "#f59e0b"; 
+                if (!node.type.includes("Ville")) {
+                    if (node.capacity_mw === 0 || (!nucActive && node.type.includes("Nucléaire")) || (!hydroActive && node.type.includes("Hydraulique")) || (!thermActive && node.type.includes("Thermique")) || (scenario === "Blackout" && node.type.includes("Nucléaire"))) {
+                        col = "#000000"; // Éteint
+                    }
+                }
+                let marker = L.circleMarker([node.lat, node.lon], {radius: node.type.includes("Ville")?6:4, color: col, fillColor: col, fillOpacity: 0.9, weight: 1})
+                              .bindTooltip(`<b>${node.name}</b><br>${node.type}<br>${node.capacity_mw || node.demand} MW`);
+                marker.addTo(map);
+                mapLayers.push(marker);
+            });
+
+            globalLinksData = data.links;
+            renderTable(); 
+
+            data.links.forEach(link => {
+                if (link.charge_pct < 50) safe++; else if (link.charge_pct <= 80) warning++; else critical++;
+                if(locations[link.source] && locations[link.target]) {
+                    let color = link.charge_pct > 80 ? "#dc2626" : (link.charge_pct > 50 ? "#f59e0b" : "#10b981");
+                    let line = L.polyline([locations[link.source], locations[link.target]], {color: color, weight: Math.min(6, 2 + (link.flow / 2000000)), opacity: 0.8})
+                                .bindTooltip(`<b>${link.source} ➔ ${link.target}</b><br>Flux: ${(link.flow/1000).toFixed(0)} MW<br>Charge: ${link.charge_pct.toFixed(1)}%`);
+                    line.addTo(map);
+                    mapLayers.push(line);
+                }
+            });
+
+            // 3. Graphique de Santé des Lignes
+            if(healthChartInstance) healthChartInstance.destroy();
+            healthChartInstance = new Chart(document.getElementById('healthChart').getContext('2d'), {
+                type: 'doughnut',
+                data: { labels: ['Fluide (<50%)', 'Tendu (50-80%)', 'Saturé (>80%)'], datasets: [{ data: [safe, warning, critical], backgroundColor: ['#10b981', '#f59e0b', '#dc2626'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right' } } }
+            });
+        }
+
+        // --- SIMULATION SIMPLE ---
+        async function runSimulation(isN1Mode = false) {
+            document.getElementById('time-controller').classList.add('hidden'); // Cache le lecteur 24h
+            if (playInterval) clearInterval(playInterval);
+
+            const formData = getFormData();
+            if (isN1Mode) document.getElementById('scenario-desc').innerHTML = `<span class="text-amber-600 font-bold">🔥 TEST N-1 ACTIF : Coupure de ${currentCutLine[0]} ➔ ${currentCutLine[1]}</span>`;
+            else { currentCutLine = null; formData.cut_line = null; document.getElementById('scenario-desc').innerText = descriptions[formData.scenario]; }
+
+            try {
+                const response = await fetch('http://localhost:8000/solve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+                const data = await response.json(); 
+                if(data.status === "success") {
+                    applyDataToDashboard(data);
+                    
+                    // --- NOUVEAU : Graphique Bar avec Export Négatif ---
+                    let bilanMW = (data.kpi.production - data.kpi.demand) / 1000;
+                    
+                    let chartLabels = Object.keys(data.mix);
+                    let chartData = Object.values(data.mix).map(v => v / 1000);
+                    let chartColors = chartLabels.map(k => k.includes('Nucléaire') ? '#3b82f6' : k.includes('Thermique') ? '#f59e0b' : k.includes('Hydraulique') ? '#10b981' : '#dc2626');
+
+                    // S'il y a de l'export, on ajoute une barre négative
+                    if (bilanMW > 0) {
+                        chartLabels.push("Export");
+                        chartData.push(-bilanMW);
+                        chartColors.push("#14b8a6"); // Vert d'eau
+                    }
+
+                    if(mixChartInstance) mixChartInstance.destroy();
+                    mixChartInstance = new Chart(document.getElementById('mixChart').getContext('2d'), {
+                        type: 'bar',
+                        data: { labels: chartLabels, datasets: [{ label: 'Production / Export (MW)', data: chartData, backgroundColor: chartColors, borderRadius: 4 }] },
+                        options: { responsive: true, maintainAspectRatio: false }
+                    });
+                    // ----------------------------------------------------
+                    
+                } else alert("Erreur Python: " + data.message);
+            } catch (error) { alert("Erreur réseau (Serveur éteint ?)"); }
+        }
+
+        // --- SIMULATION 24 HEURES ---
+        async function runSimulation24h() {
+            currentCutLine = null;
+            
+            // --- NOUVEAU : SECURITÉ UX ---
+            // Force le scénario "Réaliste" pour que l'algo de dispatch fonctionne
+            const scenarioSelect = document.getElementById('scenario');
+            if (scenarioSelect.value !== "Réaliste (Marge 20%)") {
+                scenarioSelect.value = "Réaliste (Marge 20%)";
+                // On met à jour le petit texte descriptif
+                document.getElementById('scenario-desc').innerText = "Le mode 24h a activé les contraintes industrielles pour visualiser le pilotage dynamique.";
+            } else {
+                document.getElementById('scenario-desc').innerText = "Simulation sur 24 heures (Profil de charge journalier dynamique).";
+            }
+            // -------------------------------
+
+            const formData = getFormData();
+            
+            try {
+                const response = await fetch('http://localhost:8000/solve-24h', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+                const data = await response.json();
+                
+                if(data.status === "success") {
+                    simulation24hData = data.data_24h;
+                    document.getElementById('time-controller').classList.remove('hidden');
+                    
+                    draw24hChart(simulation24hData);
+                    
+                    document.getElementById('hourSlider').value = 19;
+                    changeHour(19);
+                }
+            } catch (error) { alert("Erreur réseau /solve-24h"); }
+        }
+
+        function changeHour(hour) {
+            hour = parseInt(hour);
+            document.getElementById('current-hour-display').innerText = hour.toString().padStart(2, '0') + ':00';
+            if (simulation24hData) applyDataToDashboard(simulation24hData[hour]);
+        }
+
+        function play24h() {
+            const btn = document.getElementById('play-btn');
+            const slider = document.getElementById('hourSlider');
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+                btn.innerHTML = "▶️ Lecture Auto";
+            } else {
+                btn.innerHTML = "⏸️ Pause";
+                if(slider.value == 23) slider.value = 0;
+                playInterval = setInterval(() => {
+                    let next = parseInt(slider.value) + 1;
+                    if (next > 23) { clearInterval(playInterval); playInterval = null; btn.innerHTML = "▶️ Lecture Auto"; return; }
+                    slider.value = next;
+                    changeHour(next);
+                }, 800); // Vitesse de lecture (800ms)
+            }
+        }
+
+        function draw24hChart(data24h) {
+            const labels = data24h.map(d => d.hour + 'h');
+            let keys = new Set();
+            data24h.forEach(d => Object.keys(d.mix).forEach(k => keys.add(k)));
+            
+            const colors = { "Nucléaire": "#3b82f6", "Thermique": "#f59e0b", "Hydraulique": "#10b981", "IMPORT (Secours)": "#dc2626" };
+
+            // 1. On crée les courbes normales de production
+            const datasets = Array.from(keys).map(key => {
+                return { label: key, data: data24h.map(d => (d.mix[key] || 0) / 1000), backgroundColor: colors[key] || "#94a3b8", borderColor: colors[key] || "#94a3b8", fill: true, tension: 0.4 }
+            });
+
+            // 2. NOUVEAU : On calcule l'Export (en négatif)
+            const exportData = data24h.map(d => {
+                let bilan = d.kpi.production - d.kpi.demand;
+                return bilan > 0 ? -(bilan / 1000) : 0; // Négatif pour passer sous l'axe
+            });
+
+            // Si on a exporté au moins une fois dans la journée, on ajoute la zone d'export
+            if (exportData.some(v => v < 0)) {
+                datasets.push({
+                    label: "Export",
+                    data: exportData,
+                    backgroundColor: "#14b8a6", // Couleur Vert d'eau (Teal) pour l'export
+                    borderColor: "#0d9488",
+                    fill: true,
+                    tension: 0.4
+                });
+            }
+
+            if(mixChartInstance) mixChartInstance.destroy();
+            mixChartInstance = new Chart(document.getElementById('mixChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    scales: { 
+                        y: { 
+                            stacked: true,
+                            // NOUVEAU : On a retiré "min: 0" pour que le graphique puisse descendre !
+                        }, 
+                        x: { grid: {display: false} } 
+                    }, 
+                    plugins: { tooltip: { mode: 'index', intersect: false } }, 
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false } 
+                }
+            });
+        }
+
+        // --- BOUTON N-1 ---
+        function runN1Test() {
+            if (globalLinksData.length === 0) { alert("Veuillez d'abord lancer une simulation."); return; }
+            let maxLine = globalLinksData.reduce((max, link) => link.charge_pct > max.charge_pct ? link : max, globalLinksData[0]);
+            if(maxLine.charge_pct === 0) return;
+            currentCutLine = [maxLine.source, maxLine.target];
+            runSimulation(true); 
+        }
+
+        function updateCarbonLabel() { document.getElementById('carbonValue').innerText = document.getElementById('carbonTax').value + ' €'; }
+        
+        // --- TABLEAU ---
+        function renderTable() {
+            const tbody = document.getElementById('lines-table');
+            if(globalLinksData.length === 0) return;
+            const sortOption = document.getElementById('sortOption').value;
+            let sortedData = [...globalLinksData];
+            if(sortOption === 'charge_desc') sortedData.sort((a, b) => b.charge_pct - a.charge_pct);
+            else if(sortOption === 'cost_desc') sortedData.sort((a, b) => b.total_cost - a.total_cost);
+            else if(sortOption === 'flow_desc') sortedData.sort((a, b) => b.flow - a.flow);
+
+            let tableHtml = "";
+            sortedData.forEach(link => {
+                let chargeColor = link.charge_pct > 80 ? 'text-red-600 dark:text-red-400 font-bold' : (link.charge_pct > 50 ? 'text-orange-500 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400');
+                tableHtml += `<tr class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
+                    <td class="px-6 py-3 font-medium text-slate-900 dark:text-slate-200">${link.source}</td>
+                    <td class="px-6 py-3 dark:text-slate-300">${link.target}</td>
+                    <td class="px-6 py-3 dark:text-slate-300">${(link.flow/1000).toFixed(0)}</td>
+                    <td class="px-6 py-3 ${chargeColor}">${link.charge_pct.toFixed(1)}%</td>
+                    <td class="px-6 py-3 text-slate-500 dark:text-slate-400">${(link.unit_cost_avg||0).toFixed(2)} €</td>
+                    <td class="px-6 py-3 text-right font-bold text-slate-800 dark:text-slate-200">${new Intl.NumberFormat('fr-FR').format(link.total_cost.toFixed(0))} €</td></tr>`;
+            });
+            tbody.innerHTML = tableHtml;
+        }
+    </script>
+</body>
+</html>

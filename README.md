@@ -27,5 +27,18 @@ L'objectif est d'optimiser le couplage offre/demande en temps réel et sur 24h, 
 
 1. **Cloner le dépôt :**
    ```bash
-   git clone [https://github.com/ton-pseudo/smart-grid-simulator.git](https://github.com/ton-pseudo/smart-grid-simulator.git)
+   git clone [https://github.com/pobese/smart-grid-simulator.git](https://github.com/pobese/smart-grid-simulator.git)
    cd smart-grid-simulator
+
+   ## 🚀 Lancement du Projet
+
+Pour faire fonctionner le simulateur, vous devez lancer le **Backend** (le moteur de calcul) et ouvrir le **Frontend** (l'interface utilisateur).
+
+### 1. Démarrage du Backend (API Python)
+Le backend utilise FastAPI pour traiter les calculs d'optimisation.
+1. Ouvrez un terminal dans le dossier du projet.
+2. Déplacez-vous dans le dossier backend :
+   ```bash
+   cd backend
+
+   python -m uvicorn main:app --reload

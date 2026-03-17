@@ -10,6 +10,8 @@ class SolveRequest(BaseModel):
     scenario: str = "Normal"
     min_flow_pct: int = 0
     carbon_tax: float = 0.0  # NOUVEAU : Le prix de la tonne de CO2 sur le marché financier
+    demand_factor: float = 1.0  # NOUVEAU
+    line_factor: float = 1.0    # NOUVEAU
     custom_nodes: Dict[str, int] = {}  # Pour les modifs manuelles de l'éditeur
     
     # État des interrupteurs par filière

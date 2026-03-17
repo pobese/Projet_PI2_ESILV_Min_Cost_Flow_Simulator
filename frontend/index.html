@@ -38,6 +38,7 @@
     </div>
 
     <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-600 mb-6 flex flex-wrap gap-6 items-end">
+        
         <div class="flex-1 min-w-[200px]">
             <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Scénario Climatique</label>
             <select id="scenario" onchange="runSimulation()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-sm rounded-lg p-2.5 outline-none focus:ring-emerald-500">
@@ -51,6 +52,7 @@
                 Modèle théorique parfait : flexibilité totale des centrales et transport sans surcoût.
             </p>
         </div>
+
         <div class="flex-1 min-w-[200px]">
             <div class="relative flex items-center gap-1 group w-max mb-2">
                 <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300">Flux Min Imposé (%)</label>
@@ -60,7 +62,6 @@
                     <div class="absolute top-full left-4 border-4 border-transparent border-t-slate-800 dark:border-t-slate-950"></div>
                 </div>
             </div>
-            
             <select id="minFlow" onchange="runSimulation()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-sm rounded-lg p-2.5 outline-none focus:ring-blue-500">
                 <option value="0">0% (Optimisation pure)</option>
                 <option value="5">5% (Contrainte légère)</option>
@@ -68,16 +69,39 @@
                 <option value="25">25% (Stress Test Extrême)</option>
             </select>
         </div>
+        
+        <div class="flex-1 min-w-[150px]">
+            <div class="relative flex items-center gap-1 group w-max mb-2">
+                <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300">Demande Globale</label>
+            </div>
+            <select id="demandFactor" onchange="runSimulation()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-sm rounded-lg p-2.5 outline-none focus:ring-blue-500">
+                <option value="1" selected>x1 (Réelle)</option>
+                <option value="5">x5 (Stress test moyen)</option>
+                <option value="7.5" >x7.5 (Stress test élevé)</option>
+                <option value="10">x10 (Extrême)</option>
+            </select>
+        </div>
+
+        <div class="flex-1 min-w-[150px]">
+            <div class="relative flex items-center gap-1 group w-max mb-2">
+                <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300">Taille Lignes</label>
+            </div>
+            <select id="lineFactor" onchange="runSimulation()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-sm rounded-lg p-2.5 outline-none focus:ring-blue-500">
+                <option value="1"selected>x1 (Standard)</option>
+                <option value="5">x5 (Renforcé)</option>
+                <option value="7.5" >x7.5 (Parfait)</option>
+            </select>
+        </div>
+        
         <div class="flex-1 min-w-[200px]">
             <div class="relative flex items-center gap-1 group w-max mb-2">
                 <label class="block text-sm font-semibold text-slate-600 dark:text-slate-300">Taxe Carbone (€/tCO₂)</label>
                 <span class="cursor-help text-slate-500 dark:text-slate-400 text-xs bg-slate-200 dark:bg-slate-700 rounded-full w-4 h-4 flex items-center justify-center font-bold">?</span>
                 <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-800 dark:bg-slate-950 text-slate-100 text-xs rounded-lg shadow-xl z-50 font-normal">
-                    <strong class="text-emerald-400">Marché ETS :</strong> Applique une pénalité financière proportionnelle aux émissions de CO₂. Modifie le <i>Merit Order</i> en rendant le Thermique hors de prix.
+                    <strong class="text-emerald-400">Marché ETS :</strong> Applique une pénalité financière proportionnelle aux émissions de CO₂. Modifie le Merit Order en rendant le Thermique hors de prix.
                     <div class="absolute top-full left-4 border-4 border-transparent border-t-slate-800 dark:border-t-slate-950"></div>
                 </div>
             </div>
-            
             <div class="flex items-center gap-2">
                 <input type="range" id="carbonTax" min="0" max="250" value="0" step="5" onchange="updateCarbonLabel(); runSimulation()" class="w-full accent-emerald-600">
                 <span id="carbonValue" class="text-sm font-bold text-slate-800 dark:text-slate-200 w-12 text-right">0 €</span>
@@ -304,7 +328,7 @@
             updateChartsTheme(document.documentElement.classList.contains('dark'));
 
             try {
-                const res = await fetch('http://localhost:8000/network-data');
+                const res = await fetch('http://127.0.0.1:8000/network-data');
                 const nodes = await res.json();
                 const plantsDiv = document.getElementById('editor-plants');
                 const citiesDiv = document.getElementById('editor-cities');
@@ -350,6 +374,10 @@
                 scenario: document.getElementById('scenario').value,
                 min_flow_pct: parseInt(document.getElementById('minFlow').value),
                 carbon_tax: parseFloat(document.getElementById('carbonTax').value), 
+                // --- LES NOUVELLES DONNÉES SONT ICI ---
+                demand_factor: parseFloat(document.getElementById('demandFactor').value),
+                line_factor: parseFloat(document.getElementById('lineFactor').value),
+                // --------------------------------------
                 custom_nodes: customNodes,
                 active_nuclear: document.getElementById('nuc-active').checked,
                 active_thermal: document.getElementById('therm-active').checked,
@@ -444,7 +472,7 @@
             else { currentCutLine = null; formData.cut_line = null; document.getElementById('scenario-desc').innerText = descriptions[formData.scenario]; }
 
             try {
-                const response = await fetch('http://localhost:8000/solve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+                const response = await fetch('http://127.0.0.1:8000/solve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
                 const data = await response.json(); 
                 if(data.status === "success") {
                     applyDataToDashboard(data);
@@ -494,7 +522,7 @@
             const formData = getFormData();
             
             try {
-                const response = await fetch('http://localhost:8000/solve-24h', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
+                const response = await fetch('http://127.0.0.1:8000/solve-24h', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
                 const data = await response.json();
                 
                 if(data.status === "success") {

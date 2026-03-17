@@ -55,11 +55,10 @@ def solve_network(req: SolveRequest):
 
         req.custom_nodes = {}  # On vide pour éviter les conflits avec apply_scenarios
 
-        # --- NOUVEAU : FACTEUR D'ÉCHELLE RÉALISTE (7.5) ---
-        SCALE_FACTOR = 7.5
-        cities['demand'] = cities['demand'] * SCALE_FACTOR
+        # --- NOUVEAU : FACTEUR D'ÉCHELLE RÉALISTE (Variables via html) ---
+        cities['demand'] = cities['demand'] * req.demand_factor
         scaled_arcs = raw_arcs.copy()
-        scaled_arcs['capacity'] = scaled_arcs['capacity'] * SCALE_FACTOR
+        scaled_arcs['capacity'] = scaled_arcs['capacity'] * req.line_factor # Virtuellement pour que les résultats saturent car pas la demande totale du pays
         # ----------------------------------------------------
 
         def calculate_market_price(row_type, carbon_price):
@@ -125,16 +124,14 @@ def solve_network_24h(req: SolveRequest):
 
             plants['cost'] = plants['type'].apply(lambda t: calculate_market_price(t, req.carbon_tax))
 
-            # --- NOUVEAU : FACTEUR D'ÉCHELLE RÉALISTE (x7.5) ---
-            SCALE_FACTOR = 7.5
             
             # LA MAGIE OPÈRE ENFIN ICI SANS ÊTRE ÉCRASÉE
             multiplier = HOURLY_DEMAND_PROFILE[hour]
-            cities['demand'] = (cities['demand'] * multiplier*SCALE_FACTOR).astype(int)
+            cities['demand'] = (cities['demand'] * multiplier*req.demand_factor).astype(int)
 
             # On met aussi le réseau à l'échelle pour éviter la congestion totale
             scaled_arcs = raw_arcs.copy()
-            scaled_arcs['capacity'] = scaled_arcs['capacity'] * SCALE_FACTOR
+            scaled_arcs['capacity'] = scaled_arcs['capacity'] * req.line_factor
             
             plants, cities = apply_scenarios(plants, cities, req)
 

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Grid Simulator - A2 Poster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Configuration exacte pour l'export PDF en A2 */
+        @media print {
+            @page {
+                size: A2 portrait;
+                margin: 0;
+            }
+            body {
+                margin: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+        
+        .page-a2 {
+            width: 420mm;
+            height: 594mm;
+            background-color: #f1f5f9; /* bg-slate-100 pour correspondre à ton image */
+            margin: 0 auto;
+            overflow: hidden;
+            box-sizing: border-box;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1); /* Visible sur écran, ignoré à l'impression */
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        /* Classes utilitaires pour les bordures pointillées des images */
+        .image-placeholder {
+            border: 2px dashed #cbd5e1;
+            background-color: #f8fafc;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            font-style: italic;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-300 flex justify-center py-10 print:py-0 print:bg-white text-slate-800">
+
+    <div class="page-a2 flex flex-col p-10 gap-8">
+        
+        <header class="bg-slate-900 text-white p-8 rounded-2xl shadow-md flex justify-between items-center shrink-0 border-b-4 border-emerald-500">
+            <div>
+                <h1 class="text-6xl font-black mb-3 tracking-tight">Smart Grid Simulator</h1>
+                <h2 class="text-3xl font-bold text-emerald-400">Physics Optimization & Energy Markets</h2>
+            </div>
+            <div class="text-right text-xl text-slate-300 leading-snug">
+                <p class="font-black text-white text-2xl mb-1">Equipe 4326</p>
+                <p>Team of 7 members</p>
+                <p>Project PI² • ESILV</p>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-2 gap-8 flex-1 h-full">
+            
+            <div class="flex flex-col gap-8 h-full">
+                
+                <section class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="bg-blue-500 text-white w-12 h-12 flex items-center justify-center rounded-full text-2xl font-black shadow-sm">1</span>
+                        <h3 class="text-3xl font-black text-slate-800">Context & Challenges</h3>
+                    </div>
+                    <p class="text-xl leading-relaxed text-slate-600 mb-6">
+                        The energy transition requires complex management of electrical grids to integrate intermittency and optimize costs. This project models a national grid to:
+                    </p>
+                    <ul class="space-y-5 text-xl font-medium text-slate-700">
+                        <li class="flex items-start gap-4">
+                            <span class="text-indigo-600 text-2xl mt-0.5">✔</span> 
+                            <span><strong>Couple</strong> supply and demand in real-time.</span>
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <span class="text-indigo-600 text-2xl mt-0.5">✔</span> 
+                            <span><strong>Minimize</strong> costs via the SPOT market (Merit Order).</span>
+                        </li>
+                        <li class="flex items-start gap-4">
+                            <span class="text-indigo-600 text-2xl mt-0.5">✔</span> 
+                            <span><strong>Secure</strong> the network against congestions (N-1).</span>
+                        </li>
+                    </ul>
+                </section>
+
+                <section class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="bg-blue-500 text-white w-12 h-12 flex items-center justify-center rounded-full text-2xl font-black shadow-sm">3</span>
+                        <h3 class="text-3xl font-black text-slate-800">Modeling & Resolution</h3>
+                    </div>
+                    <p class="text-xl text-slate-600 mb-6">
+                        The network is modeled as a directed graph <i>G = (N, A)</i> via <strong>NetworkX</strong>.
+                    </p>
+                    
+                    <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6">
+                        <p class="text-lg text-slate-700 font-semibold mb-3">Resolution (Economic Dispatch) is performed by the <strong>Network Simplex</strong> algorithm:</p>
+                        <ul class="list-disc pl-6 space-y-2 text-lg text-slate-600 mb-5">
+                            <li>Industry standard (used by RTE, CPLEX).</li>
+                            <li>Optimizes global flows by eliminating costly cycles.</li>
+                            <li>Integrates a dynamic penalty linked to the <strong>Carbon Tax</strong>:</li>
+                        </ul>
+                        <div class="bg-white border border-slate-200 p-4 rounded-lg text-center shadow-sm">
+                            <p class="font-mono text-xl font-bold text-slate-800">C_marginal = C_base + (E_CO2 × Tax)</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 min-h-[300px] flex items-center justify-center overflow-hidden rounded-xl">
+                        <img src="images\mix.png" alt="Merit Order Chart" class="w-full h-full object-contain">
+                    </div>
+                </section>
+
+            </div>
+
+            <div class="flex flex-col gap-8 h-full">
+                
+                <section class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="bg-emerald-500 text-white w-12 h-12 flex items-center justify-center rounded-full text-2xl font-black shadow-sm">2</span>
+                        <h3 class="text-3xl font-black text-slate-800">Software Architecture</h3>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                            <h4 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                <span>⚙️</span> Backend
+                            </h4>
+                            <p class="text-lg text-slate-600"><strong>Python</strong> (FastAPI, Pandas). Solving engine using <i>Minimum Cost Flow</i>.</p>
+                        </div>
+                        <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                            <h4 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                <span>💻</span> Frontend
+                            </h4>
+                            <p class="text-lg text-slate-600">Real-time dashboard in <strong>JS/Tailwind</strong>. Spatial mapping with Leaflet.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="bg-emerald-500 text-white w-12 h-12 flex items-center justify-center rounded-full text-2xl font-black shadow-sm">4</span>
+                        <h3 class="text-3xl font-black text-slate-800">SCADA Dashboard & Crash Test</h3>
+                    </div>
+                    <p class="text-xl text-slate-600 mb-6">
+                        The interface allows simulating the <strong>24h dynamics</strong> (Unit Commitment) and testing resilience via an <strong>N-1 Crash Test</strong> (critical line rupture).
+                    </p>
+                    
+                    <div class="image-placeholder flex-1 mb-6 min-h-[400px]">
+                        <span class="text-center px-4">[Insert full Dashboard capture with map and KPIs here]</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center bg-[#f0fdf4] p-6 rounded-xl border border-emerald-100 shadow-sm">
+                        <div class="text-center w-1/2 border-r border-emerald-200">
+                            <p class="text-5xl font-black text-emerald-600 mb-1">100%</p>
+                            <p class="text-lg font-bold text-slate-600">Target Yield</p>
+                        </div>
+                        <div class="text-center w-1/2">
+                            <p class="text-5xl font-black text-blue-600 mb-1">< 1s</p>
+                            <p class="text-lg font-bold text-slate-600">Computation Time</p>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+</body>
+</html>
